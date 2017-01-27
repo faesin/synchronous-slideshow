@@ -14,7 +14,6 @@ function goToSlide(index) {
 	Reveal.slide(index, 0);
 }
 
-var audioWM = new AudioWM();
 var receiver = new Receiver(onReceiverReady, function(e) {
 	console.log(e);
 });

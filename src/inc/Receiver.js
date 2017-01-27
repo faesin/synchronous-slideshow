@@ -1,6 +1,6 @@
 
 function Receiver(callback, onError, context, constraints) {
-  AudioWM.call(this, context);
+  AudioMarkings.call(this, context);
 
   this.analyser = this.context.createAnalyser();
   this.analyser.smoothingTimeConstant = 0;
@@ -29,10 +29,17 @@ function Receiver(callback, onError, context, constraints) {
   this.initialize();
 
   this.constraints = (constraints instanceof Object) ? constraints : this.defaultMediaStreamConstraints;
-  var getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia;
-  getUserMedia.call(navigator, this.constraints, this.onMicrophoneReady.bind(this, callback), onError);
+
+  //requesting the user's microphone
+  if (navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia(this.constraints).then(this.onMicrophoneReady.bind(this, callback)).catch(onError);
+  } else {
+    //support for deprecated version of getUserMedia
+    var getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
+    getUserMedia.call(navigator, this.constraints, this.onMicrophoneReady.bind(this, callback), onError);
+  }
 }
-Receiver.prototype = Object.create(AudioWM.prototype);
+Receiver.prototype = Object.create(AudioMarkings.prototype);
 Receiver.prototype.initialize = function(messageFrequencies, referencePositive, referenceNegative) {
   this.messageFrequencies = (messageFrequencies instanceof Array) ? messageFrequencies : this.defaultReferenceFrequencies.message;
   this.referencePositive = (isNaN(referencePositive)) ? this.defaultReferenceFrequencies.positive : referencePositive;
@@ -53,10 +60,6 @@ Receiver.prototype.checkMessage = function() {
   //getting intensity values
   var messageIntensities = this.getIntensityValues(this.messageFrequencies);
   var referenceIntensities = this.getIntensityValues(this.referencePositive, this.referenceNegative);
-
-  //sometimes hight frequencies' intensity gets much lower than normal
-  //so i'm preventing my reference negative frequency to get lower than 'quiet' (-100)
-  referenceIntensities[1] = Math.max(referenceIntensities[1], -100);
 
   //decoding the message
   var bit;
@@ -93,7 +96,7 @@ Receiver.prototype.getIntensityValues = function() {
 }
 
 //
-//EVENTS HANDLING
+//EVENT HANDLING
 
 Receiver.prototype.manageEventLoop = function() {
 
@@ -112,7 +115,6 @@ Receiver.prototype.manageEventLoop = function() {
 }
 Receiver.prototype.addMessageEvent = function(message, callback) {
 
-  //adding event to list
   if (this.events[message] == null)
     this.events[message] = [];
   this.events[message].push(callback);
@@ -121,7 +123,6 @@ Receiver.prototype.addMessageEvent = function(message, callback) {
 }
 Receiver.prototype.removeMessageEvent = function(message, callback) {
 
-  //removing event
   if (this.events[message] != null) {
     var index = this.events[message].indexOf(callback);
     if (index > -1) {
@@ -135,8 +136,10 @@ Receiver.prototype.removeMessageEvent = function(message, callback) {
 }
 Receiver.prototype.checkMessageLoop = function() {
 
-  //only do something if message has changed and it's not bouncing
   var message = this.checkMessage();
+  this.updateBouncingBuffer(message);
+
+  //only do something if message has changed and it's not bouncing
   if (this.lastMessage !== message && !this.isBouncing(message)) {
 
     //call user's onChangeMessage event
@@ -154,13 +157,12 @@ Receiver.prototype.checkMessageLoop = function() {
 
   requestAnimationFrame(this.loop.bind(this));
 }
-Receiver.prototype.isBouncing = function(message) {
-
-  //update bouncingBuffer
+Receiver.prototype.updateBouncingBuffer = function(message) {
   this.bouncingBuffer.push(message);
   this.bouncingBuffer.shift();
+}
+Receiver.prototype.isBouncing = function() {
 
-  //check if it's bouncing
   for (var i=1; i<this.bouncingBuffer.length; i++)
     if (this.bouncingBuffer[i] !== this.bouncingBuffer[i-1])
       return true;
