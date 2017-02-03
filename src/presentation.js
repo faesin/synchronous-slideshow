@@ -6,7 +6,7 @@ function onReceiverReady() {
 	// receiver.stream.disconnect(receiver.analyser);
 	// emitter.oscillator.connect(receiver.analyser);
 	// delete receiver.stream;
-	
+
 	emitter.start();
 	//receiver.onChangeMessage = onChangeMessage();
 }
@@ -35,8 +35,8 @@ $(document).ready(function() {
   });
 });
 
-var audioWM = new AudioWM();
-var emitter = new Emitter(audioWM.context);
+var audioMarkings = new AudioMarkings();
+var emitter = new Emitter(audioMarkings.context);
 var receiver = new Receiver(onReceiverReady, function(e) {
 	console.log(e);
 });
